@@ -174,8 +174,12 @@ onMounted(async () => {
 
 // ── Navigation helpers ─────────────────────────────────────────────────────────
 
-function goToDiscovery(): void {
-  router.push('/discovery')
+function goToTrending(): void {
+  router.push('/finder')
+}
+
+function goToLatestUpdates(): void {
+  router.push({ path: '/finder', query: { sortBy: 'updatedAt' } })
 }
 
 function goToLeaderboard(): void {
@@ -338,7 +342,7 @@ const continueReadingNovels = computed<NovelSummary[]>(() =>
             :class="themeStore.isDark
               ? 'text-[#8A8F98] hover:text-[#EDEDEF] hover:bg-white/[0.05] focus:ring-offset-[#050506]'
               : 'text-[#6B7280] hover:text-[#1A1A2E] hover:bg-black/[0.04] focus:ring-offset-[#F4F4F8]'"
-            @click="goToDiscovery"
+            @click="goToTrending"
           >
             Lihat Semua
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
@@ -375,7 +379,7 @@ const continueReadingNovels = computed<NovelSummary[]>(() =>
             :class="themeStore.isDark
               ? 'text-[#8A8F98] hover:text-[#EDEDEF] hover:bg-white/[0.05] focus:ring-offset-[#050506]'
               : 'text-[#6B7280] hover:text-[#1A1A2E] hover:bg-black/[0.04] focus:ring-offset-[#F4F4F8]'"
-            @click="goToDiscovery"
+            @click="goToLatestUpdates"
           >
             Lihat Semua
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">

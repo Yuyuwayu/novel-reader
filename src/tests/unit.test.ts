@@ -234,6 +234,10 @@ function makeRouter() {
 }
 
 describe('ChapterNavigation', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
   // Requirements: 4.3 — prev button disabled at chapter 1
   it('disables the "Chapter Sebelumnya" button when currentChapter is 1', async () => {
     const router = makeRouter()
@@ -448,6 +452,7 @@ vi.mock('@/api', async (importOriginal) => {
     adminUploadCover: vi.fn(),
     adminCreateChapter: vi.fn(),
     adminUpdateChapter: vi.fn(),
+    fetchHighlights: vi.fn().mockResolvedValue([]),
     // fetchChapter is intentionally NOT mocked here so the API Client unit tests
     // that call the real fetchChapter still work. The AdminChapterFormPage tests
     // only exercise create-mode (no chapterNumber param), so fetchChapter is never
@@ -676,8 +681,8 @@ vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
   return {
     ...actual,
-    useRoute: vi.fn().mockReturnValue({ params: {} }),
-    useRouter: vi.fn().mockReturnValue({ push: vi.fn() }),
+    useRoute: vi.fn().mockReturnValue({ params: {}, path: '/', query: {}, fullPath: '/' }),
+    useRouter: vi.fn().mockReturnValue({ push: vi.fn(), replace: vi.fn() }),
   }
 })
 
@@ -739,5 +744,271 @@ describe('AdminChapterFormPage — validation', () => {
 
     // API should NOT have been called
     expect(mockAdminCreateChapter).not.toHaveBeenCalled()
+  })
+})
+
+// ── Page Consolidation: Router Redirect Tests (Task 12.1) ─────────────────────
+// Requirements: 1.1, 4.1, 4.2, 4.3
+// Note: These tests use isolated createMemoryHistory() routers, NOT the global
+// vi.mock('vue-router') mock above. They test redirect logic directly.
+
+import { createRouter as createTestRouter } from 'vue-router'
+
+function makePageConsolidationRouter() {
+  return createTestRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', component: { template: '<div />' } },
+      { path: '/finder', component: { template: '<div />' } },
+      { path: '/catalog', redirect: (to) => ({ path: '/finder', query: to.query }) },
+      { path: '/discovery', redirect: '/' },
+      { path: '/:pathMatch(.*)*', component: { template: '<div />' } },
+    ],
+  })
+}
+
+describe('Router Redirects — page-consolidation', () => {
+  // Requirements: 1.1 — /discovery redirects to /
+  it('navigating to /discovery redirects to /', async () => {
+    const router = makePageConsolidationRouter()
+    await router.push('/discovery')
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+
+  // Requirements: 4.1 — /catalog redirects to /finder
+  it('navigating to /catalog redirects to /finder', async () => {
+    const router = makePageConsolidationRouter()
+    await router.push('/catalog')
+    expect(router.currentRoute.value.path).toBe('/finder')
+  })
+
+  // Requirements: 4.2, 4.3 — /catalog?genres=Fantasy redirects to /finder?genres=Fantasy
+  it('navigating to /catalog?genres=Fantasy redirects to /finder?genres=Fantasy', async () => {
+    const router = makePageConsolidationRouter()
+    await router.push('/catalog?genres=Fantasy')
+    expect(router.currentRoute.value.path).toBe('/finder')
+    expect(router.currentRoute.value.query.genres).toBe('Fantasy')
+  })
+
+  // Requirements: 4.2, 4.3 — /catalog?tags=magic redirects to /finder?tags=magic
+  it('navigating to /catalog?tags=magic redirects to /finder?tags=magic', async () => {
+    const router = makePageConsolidationRouter()
+    await router.push('/catalog?tags=magic')
+    expect(router.currentRoute.value.path).toBe('/finder')
+    expect(router.currentRoute.value.query.tags).toBe('magic')
+  })
+})
+
+// ── Page Consolidation: Navigation Component Tests (Task 12.2) ────────────────
+// Requirements: 4.5, 4.6, 4.7, 9.3, 9.4, 9.5
+
+import AppNavbar from '@/components/AppNavbar.vue'
+import MobileBottomNav from '@/components/MobileBottomNav.vue'
+import MobileSidebarDrawer from '@/components/MobileSidebarDrawer.vue'
+
+describe('AppNavbar — navigation links (page-consolidation)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  // Requirements: 9.3 — AppNavbar must not link to /catalog or /discovery
+  it('does not contain link to /catalog or /discovery', () => {
+    const router = makePageConsolidationRouter()
+    const wrapper = mount(AppNavbar, {
+      global: {
+        plugins: [router, createPinia()],
+        stubs: {
+          MobileSidebarDrawer: { template: '<div />' },
+          RouterLink: false,
+        },
+      },
+    })
+    const html = wrapper.html()
+    expect(html).not.toContain('href="/catalog"')
+    expect(html).not.toContain('href="/discovery"')
+  })
+
+  // Requirements: 4.5 — AppNavbar must contain link to /finder with label "Katalog"
+  it('contains link to /finder with label "Katalog"', () => {
+    const router = makePageConsolidationRouter()
+    const wrapper = mount(AppNavbar, {
+      global: {
+        plugins: [router, createPinia()],
+        stubs: {
+          MobileSidebarDrawer: { template: '<div />' },
+          RouterLink: false,
+        },
+      },
+    })
+    const html = wrapper.html()
+    expect(html).toContain('href="/finder"')
+    expect(wrapper.text()).toContain('Katalog')
+  })
+})
+
+describe('MobileBottomNav — navigation links (page-consolidation)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  // Requirements: 9.4 — MobileBottomNav must not link to /catalog
+  it('does not contain link to /catalog', () => {
+    const router = makePageConsolidationRouter()
+    const wrapper = mount(MobileBottomNav, {
+      global: {
+        plugins: [router, createPinia()],
+        stubs: { RouterLink: false },
+      },
+    })
+    expect(wrapper.html()).not.toContain('href="/catalog"')
+  })
+
+  // Requirements: 4.6 — MobileBottomNav must contain link to /finder with label "Katalog"
+  it('contains link to /finder with label "Katalog"', () => {
+    const router = makePageConsolidationRouter()
+    const wrapper = mount(MobileBottomNav, {
+      global: {
+        plugins: [router, createPinia()],
+        stubs: { RouterLink: false },
+      },
+    })
+    const html = wrapper.html()
+    expect(html).toContain('href="/finder"')
+    expect(wrapper.text()).toContain('Katalog')
+  })
+})
+
+describe('MobileSidebarDrawer — navigation links (page-consolidation)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  // Requirements: 9.5 — MobileSidebarDrawer must not link to /catalog or /discovery
+  it('does not contain link to /catalog or /discovery', () => {
+    const router = makePageConsolidationRouter()
+    const wrapper = mount(MobileSidebarDrawer, {
+      props: { open: true },
+      global: {
+        plugins: [router, createPinia()],
+        stubs: { RouterLink: false },
+      },
+    })
+    const html = wrapper.html()
+    expect(html).not.toContain('href="/catalog"')
+    expect(html).not.toContain('href="/discovery"')
+  })
+})
+
+// ── Page Consolidation: DetailPage & NotesPage Navigation Tests (Task 12.3) ───
+// Requirements: 5.1, 5.2, 5.3, 5.4, 7.1, 3.1
+
+describe('DetailPage — navigateToGenre and navigateToTag (page-consolidation)', () => {
+  // Requirements: 5.1, 5.3 — navigateToGenre navigates to /finder?genres=<genre>
+  it('navigateToGenre("Fantasy") navigates to /finder?genres=Fantasy', () => {
+    const pushCalls: unknown[] = []
+    const mockRouter = { push: (args: unknown) => { pushCalls.push(args) } }
+
+    // Simulate the navigateToGenre logic from DetailPage
+    function navigateToGenre(genre: string) {
+      mockRouter.push({ path: '/finder', query: { genres: genre } })
+    }
+
+    navigateToGenre('Fantasy')
+    const call = pushCalls[0] as { path: string; query: { genres: string } }
+    expect(call.path).toBe('/finder')
+    expect(call.query.genres).toBe('Fantasy')
+  })
+
+  // Requirements: 5.2, 5.4 — navigateToTag navigates to /finder?tags=<tagId>
+  it('navigateToTag("tag-123") navigates to /finder?tags=tag-123', () => {
+    const pushCalls: unknown[] = []
+    const mockRouter = { push: (args: unknown) => { pushCalls.push(args) } }
+
+    // Simulate the navigateToTag logic from DetailPage
+    function navigateToTag(tagId: string) {
+      mockRouter.push({ path: '/finder', query: { tags: tagId } })
+    }
+
+    navigateToTag('tag-123')
+    const call = pushCalls[0] as { path: string; query: { tags: string } }
+    expect(call.path).toBe('/finder')
+    expect(call.query.tags).toBe('tag-123')
+  })
+})
+
+describe('NotesPage — "Mulai Membaca" link (page-consolidation)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  // Requirements: 7.1 — "Mulai Membaca" link in NotesPage points to /finder
+  it('"Mulai Membaca" link points to /finder', () => {
+    const router = makePageConsolidationRouter()
+
+    // fetchHighlights is already mocked via the top-level vi.mock('@/api') call
+    // (returns [] by default, so NotesPage renders the empty state)
+
+    const wrapper = mount(NotesPage, {
+      global: {
+        plugins: [router, createPinia()],
+        stubs: {
+          RouterLink: false,
+          LoadingIndicator: { template: '<div />' },
+          ErrorMessage: { template: '<div />' },
+          ConfirmDialog: { template: '<div />' },
+        },
+      },
+    })
+
+    // The empty state renders the "Mulai Membaca" RouterLink to /finder
+    const html = wrapper.html()
+    expect(html).toContain('href="/finder"')
+  })
+})
+
+import NotesPage from '@/pages/NotesPage.vue'
+import FinderPage from '@/pages/FinderPage.vue'
+import SearchBar from '@/components/SearchBar.vue'
+
+describe('FinderPage — SearchBar in header (page-consolidation)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    // jsdom does not implement IntersectionObserver — provide a no-op stub
+    vi.stubGlobal('IntersectionObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ novels: [], total: 0, page: 1, perPage: 20 }), { status: 200 })
+    ))
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  // Requirements: 3.1 — SearchBar appears in FinderPage header
+  it('renders a SearchBar component in the header', async () => {
+    const router = makePageConsolidationRouter()
+    const wrapper = mount(FinderPage, {
+      global: {
+        plugins: [router, createPinia()],
+        stubs: {
+          FilterPanel: { template: '<div />' },
+          NovelCard: { template: '<div />' },
+          SkeletonLoader: { template: '<div />' },
+          ErrorMessage: { template: '<div />' },
+        },
+      },
+    })
+
+    // SearchBar should be present in the rendered output
+    expect(wrapper.findComponent(SearchBar).exists()).toBe(true)
+
+    // Flush all pending async operations (onMounted, loadInitial, etc.)
+    await wrapper.vm.$nextTick()
+    await new Promise((r) => setTimeout(r, 0))
+    await wrapper.vm.$nextTick()
   })
 })

@@ -71,8 +71,7 @@ async function handleLogout() {
           <RouterLink
             v-for="link in [
               { to: '/', label: 'Beranda', exact: true },
-              { to: '/catalog', label: 'Katalog', exact: false },
-              { to: '/discovery', label: 'Discovery', exact: false },
+              { to: '/finder', label: 'Katalog', exact: false },
               { to: '/leaderboard', label: 'Leaderboard', exact: false },
             ]"
             :key="link.to"

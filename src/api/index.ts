@@ -582,8 +582,9 @@ export async function adminUpdateNovelTags(novelId: string, tagIds: string[]): P
 /**
  * Fetches a filtered catalog page using the full FilterState.
  * Arrays are serialized as comma-separated strings in query params.
+ * Optionally accepts a search query string (`q`) to combine text search with filters.
  */
-export async function fetchFilteredCatalog(filter: FilterState, page: number): Promise<CatalogResponse> {
+export async function fetchFilteredCatalog(filter: FilterState, page: number, query?: string): Promise<CatalogResponse> {
   const params = new URLSearchParams()
 
   params.set('page', String(page))
@@ -599,6 +600,7 @@ export async function fetchFilteredCatalog(filter: FilterState, page: number): P
   if (filter.sortBy) params.set('sortBy', filter.sortBy)
   if (filter.updatedAfter !== '') params.set('updatedAfter', filter.updatedAfter)
   if (filter.updatedBefore !== '') params.set('updatedBefore', filter.updatedBefore)
+  if (query && query.trim().length > 0) params.set('q', query.trim())
 
   return apiFetch<CatalogResponse>(`${BASE_URL}/catalog?${params.toString()}`)
 }

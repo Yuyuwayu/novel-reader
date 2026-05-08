@@ -20,11 +20,11 @@ const router = createRouter({
     },
     {
       path: '/catalog',
-      component: () => import('@/pages/CatalogPage.vue'),
+      redirect: (to) => ({ path: '/finder', query: to.query }),
     },
     {
       path: '/discovery',
-      component: () => import('@/pages/DiscoveryPage.vue'),
+      redirect: '/',
     },
     {
       path: '/leaderboard',

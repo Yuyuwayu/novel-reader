@@ -1,9 +1,11 @@
 <script setup lang="ts">
-// Advanced Novel Finder page — multi-criteria filter with URL sync and infinite scroll.
-// Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6,
+// Advanced Novel Finder page — multi-criteria filter with URL sync, search, and infinite scroll.
+// Requirements: 3.1, 3.2, 3.4, 3.6, 3.7, 3.8, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6,
+//               8.1, 8.2, 8.3, 8.4, 8.5, 8.6,
 //               9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7
 
 import { ref, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useSeoMeta } from '@/composables/useSeoMeta'
 import { useFilterState } from '@/composables/useFilterState'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
@@ -14,13 +16,23 @@ import FilterPanel from '@/components/FilterPanel.vue'
 import NovelCard from '@/components/NovelCard.vue'
 import SkeletonLoader from '@/components/SkeletonLoader.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
+import SearchBar from '@/components/SearchBar.vue'
 
 // ── SEO ───────────────────────────────────────────────────────────────────────
 
 useSeoMeta(
-  'Novel Finder — Temukan Novel Sesuai Selera',
-  'Cari novel dengan filter canggih: genre, tag, status, rating, jumlah chapter, dan rentang tanggal update.',
+  'Cari & Temukan Novel — Novel Reader',
+  'Cari novel berdasarkan judul atau penulis, lalu saring dengan filter canggih: genre, tag, status, rating, jumlah chapter, dan rentang tanggal update.',
 )
+
+// ── Router ────────────────────────────────────────────────────────────────────
+
+const route = useRoute()
+const router = useRouter()
+
+// ── Search query state (synced to URL param `q`) ──────────────────────────────
+
+const searchQuery = ref<string>('')
 
 // ── Filter state (synced to URL query params) ─────────────────────────────────
 
@@ -92,7 +104,7 @@ async function loadInitial(): Promise<void> {
   currentPage.value = 1
 
   try {
-    const response = await fetchFilteredCatalog(filterState.value, 1)
+    const response = await fetchFilteredCatalog(filterState.value, 1, searchQuery.value || undefined)
     novels.value = response.novels
     currentPage.value = response.page
     totalNovels.value = response.total
@@ -123,7 +135,7 @@ async function loadNextPage(): Promise<void> {
   const nextPage = currentPage.value + 1
 
   try {
-    const response = await fetchFilteredCatalog(filterState.value, nextPage)
+    const response = await fetchFilteredCatalog(filterState.value, nextPage, searchQuery.value || undefined)
     novels.value = [...novels.value, ...response.novels]
     currentPage.value = response.page
     totalNovels.value = response.total
@@ -168,9 +180,24 @@ watch(
   { deep: true },
 )
 
+// ── Watch searchQuery — sync to URL param `q` and reload ──────────────────────
+
+watch(searchQuery, (newQuery) => {
+  if (!mounted) return
+  const currentQuery = { ...route.query }
+  if (newQuery) {
+    currentQuery.q = newQuery
+  } else {
+    delete currentQuery.q
+  }
+  router.replace({ query: currentQuery })
+  loadInitial()
+})
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
+  searchQuery.value = (route.query.q as string) || ''
   await loadFilterData()
   await loadInitial()
   mounted = true
@@ -185,29 +212,34 @@ onMounted(async () => {
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Advanced Novel Finder
+              Cari &amp; Temukan Novel
             </h1>
             <p class="text-sm text-gray-500 dark:text-gray-400">
-              Temukan novel sesuai selera dengan filter canggih
+              Cari berdasarkan judul atau penulis, lalu saring dengan filter canggih
             </p>
           </div>
 
-          <!-- Result count badge (real-time) -->
-          <div
-            v-if="!isLoading || novels.length > 0"
-            class="flex items-center gap-2"
-          >
-            <span class="rounded-full bg-blue-100 dark:bg-blue-900/40 px-3 py-1 text-sm font-medium text-blue-700 dark:text-blue-300">
-              {{ totalNovels }} novel ditemukan
-            </span>
-            <button
-              v-if="isFilterActive"
-              type="button"
-              class="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-              @click="resetFilter"
+          <!-- Search bar + result count badge + reset filter -->
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <SearchBar v-model="searchQuery" placeholder="Cari judul atau penulis..." />
+
+            <!-- Result count badge (real-time) -->
+            <div
+              v-if="!isLoading || novels.length > 0"
+              class="flex items-center gap-2"
             >
-              Reset Filter
-            </button>
+              <span class="rounded-full bg-blue-100 dark:bg-blue-900/40 px-3 py-1 text-sm font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">
+                {{ totalNovels }} novel ditemukan
+              </span>
+              <button
+                v-if="isFilterActive"
+                type="button"
+                class="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
+                @click="resetFilter"
+              >
+                Reset Filter
+              </button>
+            </div>
           </div>
         </div>
       </div>

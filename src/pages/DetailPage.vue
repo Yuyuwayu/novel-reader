@@ -336,13 +336,13 @@ async function submitUserRating(value: number): Promise<void> {
 // ── Genre chip click ──────────────────────────────────────────────────────────
 
 function navigateToGenre(genre: string): void {
-  router.push({ path: '/catalog', query: { genres: genre } })
+  router.push({ path: '/finder', query: { genres: genre } })
 }
 
 // ── Tag chip click ────────────────────────────────────────────────────────────
 
 function navigateToTag(tagId: string): void {
-  router.push({ path: '/catalog', query: { tags: tagId } })
+  router.push({ path: '/finder', query: { tags: tagId } })
 }
 
 // ── Data fetching ─────────────────────────────────────────────────────────────
