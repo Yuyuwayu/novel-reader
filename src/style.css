@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Linear/Modern Design System — Ambient blob animations ── */
+@keyframes blob-float {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  33%       { transform: translateY(-24px) rotate(0.5deg) scale(1.01); }
+  66%       { transform: translateY(-12px) rotate(-0.5deg) scale(0.99); }
+}
