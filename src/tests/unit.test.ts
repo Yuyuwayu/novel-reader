@@ -4,7 +4,7 @@
  */
 
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { fetchCatalog, fetchNovelDetail, fetchChapter, filterNovels, ApiError } from '@/api'
+import { fetchCatalog, fetchNovelDetail, fetchChapter, filterNovels, ApiError, fetchDefinition, translateChapter } from '@/api'
 import type { NovelSummary } from '@/types'
 
 describe('API Client', () => {
@@ -136,6 +136,44 @@ describe('API Client', () => {
 
       await expect(fetchChapter('novel-1', 1)).rejects.toBeInstanceOf(ApiError)
       await expect(fetchChapter('novel-1', 1)).rejects.toMatchObject({ type: 'parse' })
+    })
+  })
+
+  // ── Glossary & Translate API ───────────────────────────────────────────────
+
+  describe('fetchDefinition', () => {
+    it('returns successful JSON response for valid definition', async () => {
+      const mockResult = { term: 'qi', definition: 'Energi.' }
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify(mockResult), { status: 200 }),
+      )
+
+      const res = await fetchDefinition('qi')
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/dictionary?term=qi'), expect.anything())
+      expect(res).toEqual(mockResult)
+    })
+
+    it('throws ApiError on server error', async () => {
+      vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 500 }))
+      await expect(fetchDefinition('qi')).rejects.toBeInstanceOf(ApiError)
+    })
+  })
+
+  describe('translateChapter', () => {
+    it('returns successful JSON response for translation', async () => {
+      const mockResult = { novelId: '1', chapterNumber: 1, title: 'Bab 1', content: { paragraphs: ['Test'] }, totalChapters: 10 }
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify(mockResult), { status: 200 }),
+      )
+
+      const res = await translateChapter('1', 1)
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/translate/chapter'), expect.objectContaining({ method: 'POST' }))
+      expect(res).toEqual(mockResult)
+    })
+
+    it('throws ApiError on server error', async () => {
+      vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 404 }))
+      await expect(translateChapter('1', 1)).rejects.toBeInstanceOf(ApiError)
     })
   })
 })
