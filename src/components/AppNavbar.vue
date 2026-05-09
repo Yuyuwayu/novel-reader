@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useNotificationsStore } from '@/stores/notifications'
 import MobileSidebarDrawer from './MobileSidebarDrawer.vue'
+import OfflineIndicator from './OfflineIndicator.vue'
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
@@ -91,8 +92,11 @@ async function handleLogout() {
           </RouterLink>
         </div>
 
-        <!-- Right side: theme toggle + auth -->
+        <!-- Right side: offline indicator + theme toggle + auth -->
         <div class="hidden items-center gap-2 md:flex">
+
+          <!-- Offline Indicator -->
+          <OfflineIndicator />
 
           <!-- Theme toggle -->
           <button

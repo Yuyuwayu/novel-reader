@@ -26,7 +26,6 @@ import { useProgressStore } from '@/stores/progress'
 import { useAuthStore } from '@/stores/auth'
 import { useFollowsStore } from '@/stores/follows'
 import { useThemeStore } from '@/stores/theme'
-import LoadingIndicator from '@/components/LoadingIndicator.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
 import BookmarkButton from '@/components/BookmarkButton.vue'
 import FollowButton from '@/components/FollowButton.vue'
@@ -139,12 +138,6 @@ const statusLabel: Record<string, string> = {
   ongoing: 'Berlangsung',
   completed: 'Selesai',
   hiatus: 'Hiatus',
-}
-
-const statusColor: Record<string, string> = {
-  ongoing: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  completed: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  hiatus: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
 }
 
 // ── Tags grouped by category ──────────────────────────────────────────────────

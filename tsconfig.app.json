@@ -17,5 +17,6 @@
     },
     "ignoreDeprecations": "6.0"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.property.test.ts", "src/**/*.smoke.test.ts", "src/tests/**/*"]
 }

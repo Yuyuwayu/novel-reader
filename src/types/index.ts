@@ -72,6 +72,7 @@ export interface ReadingPreferences {
   fontFamily: FontFamily  // font family untuk konten chapter
   lineSpacing: LineSpacing // jarak antar baris konten chapter
   contentWidth: number  // lebar konten dalam px (600–900)
+  autoScrollSpeed: number // kecepatan auto-scroll (rentang 1-10)
 }
 
 /** Tema tampilan */
@@ -84,6 +85,7 @@ export const DEFAULT_PREFERENCES: ReadingPreferences = {
   fontFamily: 'font-sans',
   lineSpacing: 'leading-relaxed',
   contentWidth: 750,
+  autoScrollSpeed: 3,
 }
 
 /** Response paginasi katalog dari API */
@@ -402,4 +404,13 @@ export interface Report {
   description: string
   status: 'new' | 'reviewing' | 'resolved'
   createdAt: string // ISO 8601
+}
+
+// ── Reading Time ──────────────────────────────────────────────────────────────
+
+/** Hasil perhitungan estimasi waktu baca */
+export interface ReadingTimeResult {
+  minutes: number
+  wordCount: number
+  language: 'id' | 'en'
 }

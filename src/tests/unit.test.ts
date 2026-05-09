@@ -439,7 +439,6 @@ describe('StarRating', () => {
 // ── CommentSection component ──────────────────────────────────────────────────
 
 import CommentSection from '@/components/CommentSection.vue'
-import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import type { Comment } from '@/types'
 
 vi.mock('@/api', async (importOriginal) => {
@@ -460,7 +459,7 @@ vi.mock('@/api', async (importOriginal) => {
   }
 })
 
-import { fetchComments as mockFetchComments, postComment as mockPostComment, deleteComment as mockDeleteComment } from '@/api'
+import { fetchComments as mockFetchComments, postComment as mockPostComment } from '@/api'
 
 function makeComment(overrides: Partial<Comment> = {}): Comment {
   return {
@@ -1010,5 +1009,399 @@ describe('FinderPage — SearchBar in header (page-consolidation)', () => {
     await wrapper.vm.$nextTick()
     await new Promise((r) => setTimeout(r, 0))
     await wrapper.vm.$nextTick()
+  })
+})
+
+
+// ── Cache Manager Unit Tests ───────────────────────────────────────────────
+
+import { CacheManager } from '@/utils/cacheManager'
+
+describe('CacheManager', () => {
+  let manager: CacheManager
+
+  beforeEach(async () => {
+    manager = new CacheManager()
+    await manager.init()
+    await manager.clearCache()
+  })
+
+  afterEach(async () => {
+    await manager.clearCache()
+  })
+
+  describe('cache key generation', () => {
+    it('should generate correct cache key format', async () => {
+      const chapter = {
+        novelId: 'novel-123',
+        chapterNumber: 45,
+        content: 'Test content',
+        title: 'Test Chapter'
+      }
+
+      await manager.cacheChapter(chapter)
+      const retrieved = await manager.getCachedChapter('novel-123', 45)
+
+      expect(retrieved).not.toBeNull()
+      expect(retrieved?.key).toBe('novel-123-45')
+    })
+
+    it('should generate unique keys for different novel-chapter combinations', async () => {
+      const chapter1 = {
+        novelId: 'novel-1',
+        chapterNumber: 1,
+        content: 'Content 1',
+        title: 'Chapter 1'
+      }
+
+      const chapter2 = {
+        novelId: 'novel-1',
+        chapterNumber: 2,
+        content: 'Content 2',
+        title: 'Chapter 2'
+      }
+
+      await manager.cacheChapter(chapter1)
+      await manager.cacheChapter(chapter2)
+
+      const retrieved1 = await manager.getCachedChapter('novel-1', 1)
+      const retrieved2 = await manager.getCachedChapter('novel-1', 2)
+
+      expect(retrieved1?.key).toBe('novel-1-1')
+      expect(retrieved2?.key).toBe('novel-1-2')
+      expect(retrieved1?.key).not.toBe(retrieved2?.key)
+    })
+  })
+
+  describe('fallback to memory cache', () => {
+    it('should use memory cache when IndexedDB unavailable', () => {
+      const memoryManager = new CacheManager()
+      // Don't call init() to simulate IndexedDB unavailable
+      expect(memoryManager.isUsingMemoryCache()).toBe(true)
+    })
+
+    it('should limit memory cache to 10 chapters', async () => {
+      const memoryManager = new CacheManager()
+      // Don't call init() to force memory-only mode
+
+      // Cache 15 chapters
+      for (let i = 1; i <= 15; i++) {
+        await memoryManager.cacheChapter({
+          novelId: 'novel-1',
+          chapterNumber: i,
+          content: `Content ${i}`,
+          title: `Chapter ${i}`
+        })
+      }
+
+      const stats = await memoryManager.getCacheStats()
+      expect(stats.count).toBeLessThanOrEqual(10)
+    })
+  })
+
+  describe('error handling', () => {
+    it('should handle empty content', async () => {
+      const chapter = {
+        novelId: 'novel-1',
+        chapterNumber: 1,
+        content: '',
+        title: 'Empty Chapter'
+      }
+
+      await manager.cacheChapter(chapter)
+      const retrieved = await manager.getCachedChapter('novel-1', 1)
+
+      expect(retrieved).not.toBeNull()
+      expect(retrieved?.content).toBe('')
+      expect(retrieved?.size).toBeGreaterThanOrEqual(0)
+    })
+
+    it('should handle special characters in content', async () => {
+      const chapter = {
+        novelId: 'novel-1',
+        chapterNumber: 1,
+        content: 'Special chars: é ñ 中文 🎉',
+        title: 'Special Chapter'
+      }
+
+      await manager.cacheChapter(chapter)
+      const retrieved = await manager.getCachedChapter('novel-1', 1)
+
+      expect(retrieved).not.toBeNull()
+      expect(retrieved?.content).toBe('Special chars: é ñ 中文 🎉')
+    })
+
+    it('should return null for non-existent chapter', async () => {
+      const retrieved = await manager.getCachedChapter('non-existent', 999)
+      expect(retrieved).toBeNull()
+    })
+  })
+
+  describe('cache statistics', () => {
+    it('should return correct count and size', async () => {
+      const chapter1 = {
+        novelId: 'novel-1',
+        chapterNumber: 1,
+        content: 'Short content',
+        title: 'Chapter 1'
+      }
+
+      const chapter2 = {
+        novelId: 'novel-1',
+        chapterNumber: 2,
+        content: 'Another short content',
+        title: 'Chapter 2'
+      }
+
+      await manager.cacheChapter(chapter1)
+      await manager.cacheChapter(chapter2)
+
+      const stats = await manager.getCacheStats()
+
+      expect(stats.count).toBe(2)
+      expect(stats.totalSize).toBeGreaterThan(0)
+    })
+
+    it('should return zero stats for empty cache', async () => {
+      const stats = await manager.getCacheStats()
+
+      expect(stats.count).toBe(0)
+      expect(stats.totalSize).toBe(0)
+    })
+  })
+
+  describe('cache operations', () => {
+    it('should update existing chapter', async () => {
+      const chapter = {
+        novelId: 'novel-1',
+        chapterNumber: 1,
+        content: 'Original content',
+        title: 'Original Title'
+      }
+
+      await manager.cacheChapter(chapter)
+
+      // Update with new content
+      const updatedChapter = {
+        novelId: 'novel-1',
+        chapterNumber: 1,
+        content: 'Updated content',
+        title: 'Updated Title'
+      }
+
+      await manager.cacheChapter(updatedChapter)
+
+      const retrieved = await manager.getCachedChapter('novel-1', 1)
+
+      expect(retrieved?.content).toBe('Updated content')
+      expect(retrieved?.title).toBe('Updated Title')
+    })
+
+    it('should clear all cached chapters', async () => {
+      // Cache multiple chapters
+      for (let i = 1; i <= 5; i++) {
+        await manager.cacheChapter({
+          novelId: 'novel-1',
+          chapterNumber: i,
+          content: `Content ${i}`,
+          title: `Chapter ${i}`
+        })
+      }
+
+      let stats = await manager.getCacheStats()
+      expect(stats.count).toBe(5)
+
+      await manager.clearCache()
+
+      stats = await manager.getCacheStats()
+      expect(stats.count).toBe(0)
+    })
+  })
+
+  describe('metadata', () => {
+    it('should store cachedAt timestamp', async () => {
+      const chapter = {
+        novelId: 'novel-1',
+        chapterNumber: 1,
+        content: 'Test content',
+        title: 'Test Chapter'
+      }
+
+      const beforeCache = new Date().toISOString()
+      await manager.cacheChapter(chapter)
+      const afterCache = new Date().toISOString()
+
+      const retrieved = await manager.getCachedChapter('novel-1', 1)
+
+      expect(retrieved?.cachedAt).toBeDefined()
+      expect(retrieved?.cachedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
+      expect(new Date(retrieved!.cachedAt).getTime()).toBeGreaterThanOrEqual(new Date(beforeCache).getTime())
+      expect(new Date(retrieved!.cachedAt).getTime()).toBeLessThanOrEqual(new Date(afterCache).getTime())
+    })
+
+    it('should calculate content size in bytes', async () => {
+      const chapter = {
+        novelId: 'novel-1',
+        chapterNumber: 1,
+        content: 'Test content with some text',
+        title: 'Test Chapter'
+      }
+
+      await manager.cacheChapter(chapter)
+      const retrieved = await manager.getCachedChapter('novel-1', 1)
+
+      expect(retrieved?.size).toBeGreaterThan(0)
+      expect(typeof retrieved?.size).toBe('number')
+    })
+  })
+})
+
+// ── Reading Time Calculator ───────────────────────────────────────────────────
+// Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8
+
+import { calculateReadingTime } from '@/utils/readingTime'
+
+describe('calculateReadingTime', () => {
+  // Requirements: 5.1, 5.2 — word count calculation
+  it('should count words correctly by splitting on whitespace', () => {
+    const content = 'This is a test sentence with seven words'
+    const result = calculateReadingTime(content)
+    expect(result.wordCount).toBe(8)
+  })
+
+  // Requirements: 5.1 — filter empty strings from word count
+  it('should filter empty strings when counting words', () => {
+    const content = 'word1   word2    word3' // multiple spaces
+    const result = calculateReadingTime(content)
+    expect(result.wordCount).toBe(3)
+  })
+
+  // Requirements: 5.2, 5.3 — Indonesian reading speed (200 wpm)
+  it('should return 1 minute for 200 Indonesian words', () => {
+    // Create 200 words with sufficient non-ASCII characters (>20% non-ASCII)
+    // Using many accented characters to ensure detection as Indonesian
+    const words = []
+    for (let i = 0; i < 200; i++) {
+      // Use words with high density of non-ASCII chars
+      words.push(i % 3 === 0 ? 'éàüñ' : (i % 3 === 1 ? 'çöîâ' : 'kata'))
+    }
+    const content = words.join(' ')
+    const result = calculateReadingTime(content)
+    expect(result.minutes).toBe(1)
+    expect(result.language).toBe('id')
+  })
+
+  // Requirements: 5.2, 5.3 — English reading speed (250 wpm)
+  it('should return 1 minute for 250 English words', () => {
+    const content = 'word '.repeat(250) // English text
+    const result = calculateReadingTime(content)
+    expect(result.minutes).toBe(1)
+    expect(result.language).toBe('en')
+    expect(result.wordCount).toBe(250)
+  })
+
+  // Requirements: 5.4, 5.5 — language detection based on ASCII ratio > 80%
+  it('should detect English when ASCII ratio > 80%', () => {
+    const content = 'This is an English sentence with mostly ASCII characters.'
+    const result = calculateReadingTime(content)
+    expect(result.language).toBe('en')
+  })
+
+  // Requirements: 5.4, 5.6 — language detection based on ASCII ratio ≤ 80%
+  it('should detect Indonesian when ASCII ratio ≤ 80%', () => {
+    // Create content where non-ASCII chars make up > 20% of total characters
+    // Need at least 20% non-ASCII to get ≤ 80% ASCII ratio
+    const asciiPart = 'abcd' // 4 ASCII chars
+    const nonAsciiPart = 'é' // 1 non-ASCII char
+    const content = (asciiPart + nonAsciiPart).repeat(20) // 80% ASCII, 20% non-ASCII
+    const result = calculateReadingTime(content)
+    expect(result.language).toBe('id')
+  })
+
+  // Requirements: 5.7 — ceiling rounding
+  it('should round up to nearest minute (ceiling)', () => {
+    const content = 'word '.repeat(201) // 201 words / 250 wpm = 0.804 minutes
+    const result = calculateReadingTime(content)
+    expect(result.minutes).toBe(1) // Ceiling of 0.804 = 1
+  })
+
+  // Requirements: 5.7 — ceiling for larger values
+  it('should round up 401 English words to 2 minutes', () => {
+    const content = 'word '.repeat(401) // 401 / 250 = 1.604 minutes
+    const result = calculateReadingTime(content)
+    expect(result.minutes).toBe(2) // Ceiling of 1.604 = 2
+  })
+
+  // Requirements: 5.8 — empty content edge case
+  it('should return 0 minutes for empty content', () => {
+    const result = calculateReadingTime('')
+    expect(result.minutes).toBe(0)
+    expect(result.wordCount).toBe(0)
+    expect(result.language).toBe('id') // Default to Indonesian
+  })
+
+  // Requirements: 5.7 — very short content (< 1 minute)
+  it('should return 1 minute for very short content', () => {
+    const content = 'Short text'
+    const result = calculateReadingTime(content)
+    expect(result.minutes).toBe(1) // Ceiling of 0.008 = 1
+    expect(result.wordCount).toBe(2)
+  })
+
+  // Edge case: content with only whitespace
+  it('should return 0 minutes for content with only whitespace', () => {
+    const content = '   \n\t  \n  '
+    const result = calculateReadingTime(content)
+    expect(result.minutes).toBe(0)
+    expect(result.wordCount).toBe(0)
+  })
+
+  // Edge case: content with newlines and tabs
+  it('should count words correctly with newlines and tabs', () => {
+    const content = 'word1\nword2\tword3\n\nword4'
+    const result = calculateReadingTime(content)
+    expect(result.wordCount).toBe(4)
+  })
+
+  // Requirements: 5.4, 5.5, 5.6 — language detection edge case (exactly 80%)
+  it('should detect Indonesian when ASCII ratio is exactly 80%', () => {
+    // Create content with exactly 80% ASCII characters
+    const asciiChars = 'a'.repeat(80)
+    const nonAsciiChars = 'é'.repeat(20)
+    const content = asciiChars + nonAsciiChars
+    const result = calculateReadingTime(content)
+    expect(result.language).toBe('id') // ≤ 80% = Indonesian
+  })
+
+  // Requirements: 5.4, 5.5 — language detection edge case (just above 80%)
+  it('should detect English when ASCII ratio is just above 80%', () => {
+    // Create content with 81% ASCII characters
+    const asciiChars = 'a'.repeat(81)
+    const nonAsciiChars = 'é'.repeat(19)
+    const content = asciiChars + nonAsciiChars
+    const result = calculateReadingTime(content)
+    expect(result.language).toBe('en') // > 80% = English
+  })
+
+  // Requirements: 5.2, 5.3 — verify reading speed calculation for Indonesian
+  it('should calculate 2 minutes for 400 Indonesian words', () => {
+    // Create 400 words with sufficient non-ASCII characters (>20% non-ASCII)
+    const words = []
+    for (let i = 0; i < 400; i++) {
+      // Use words with high density of non-ASCII chars
+      words.push(i % 3 === 0 ? 'éàüñ' : (i % 3 === 1 ? 'çöîâ' : 'kata'))
+    }
+    const content = words.join(' ')
+    const result = calculateReadingTime(content)
+    expect(result.minutes).toBe(2)
+    expect(result.language).toBe('id')
+  })
+
+  // Requirements: 5.2, 5.3 — verify reading speed calculation for English
+  it('should calculate 2 minutes for 500 English words', () => {
+    const content = 'word '.repeat(500) // 500 / 250 = 2 minutes
+    const result = calculateReadingTime(content)
+    expect(result.minutes).toBe(2)
+    expect(result.language).toBe('en')
   })
 })

@@ -60,5 +60,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
     saveReadingPreferences(preferences.value)
   }
 
-  return { preferences, setTheme, setFontSize, setFontFamily, setLineSpacing, setContentWidth }
+  /**
+   * Sets the auto-scroll speed (clamped to 1-10) and persists it to localStorage.
+   */
+  function setAutoScrollSpeed(speed: number): void {
+    const clamped = Math.min(10, Math.max(1, speed))
+    preferences.value = { ...preferences.value, autoScrollSpeed: clamped }
+    saveReadingPreferences(preferences.value)
+  }
+
+  return { preferences, setTheme, setFontSize, setFontFamily, setLineSpacing, setContentWidth, setAutoScrollSpeed }
 })

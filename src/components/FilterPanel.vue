@@ -99,15 +99,20 @@ const sortOptions = [
       <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
         Urutkan
       </label>
-      <select
-        :value="modelValue.sortBy"
-        class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        @change="update({ sortBy: ($event.target as HTMLSelectElement).value as FilterState['sortBy'] })"
-      >
-        <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
+      <div class="relative">
+        <select
+          :value="modelValue.sortBy"
+          class="w-full appearance-none rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 pr-10 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
+          @change="update({ sortBy: ($event.target as HTMLSelectElement).value as FilterState['sortBy'] })"
+        >
+          <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 dark:text-gray-400">
+          <svg class="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+        </div>
+      </div>
     </div>
 
     <!-- Status -->
@@ -115,22 +120,27 @@ const sortOptions = [
       <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
         Status
       </label>
-      <select
-        :value="modelValue.status"
-        class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        @change="update({ status: ($event.target as HTMLSelectElement).value as FilterState['status'] })"
-      >
-        <option value="">Semua Status</option>
-        <option value="ongoing">Berlangsung</option>
-        <option value="completed">Selesai</option>
-        <option value="hiatus">Hiatus</option>
-      </select>
+      <div class="relative">
+        <select
+          :value="modelValue.status"
+          class="w-full appearance-none rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 pr-10 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
+          @change="update({ status: ($event.target as HTMLSelectElement).value as FilterState['status'] })"
+        >
+          <option value="">Semua Status</option>
+          <option value="ongoing">Berlangsung</option>
+          <option value="completed">Selesai</option>
+          <option value="hiatus">Hiatus</option>
+        </select>
+        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 dark:text-gray-400">
+          <svg class="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+        </div>
+      </div>
     </div>
 
     <!-- Min rating -->
     <div>
-      <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        Rating Minimum: {{ modelValue.minRating > 0 ? modelValue.minRating.toFixed(1) : 'Semua' }}
+      <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        Rating Minimum: <span class="text-blue-600 dark:text-blue-400 font-bold">{{ modelValue.minRating > 0 ? modelValue.minRating.toFixed(1) : 'Semua' }}</span>
       </label>
       <input
         type="range"
@@ -138,10 +148,10 @@ const sortOptions = [
         max="5"
         step="0.5"
         :value="modelValue.minRating"
-        class="w-full accent-blue-600"
+        class="w-full appearance-none bg-transparent focus:outline-none [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 dark:[&::-webkit-slider-runnable-track]:bg-gray-700 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:mt-[-4px] [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 dark:[&::-moz-range-track]:bg-gray-700 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-blue-600 cursor-pointer"
         @input="update({ minRating: parseFloat(($event.target as HTMLInputElement).value) })"
       />
-      <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500">
+      <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
         <span>0</span><span>5</span>
       </div>
     </div>
@@ -157,7 +167,7 @@ const sortOptions = [
           min="0"
           placeholder="Min"
           :value="modelValue.minChapters || ''"
-          class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
           @input="update({ minChapters: parseInt(($event.target as HTMLInputElement).value) || 0 })"
         />
         <span class="text-gray-400">–</span>
@@ -166,7 +176,7 @@ const sortOptions = [
           min="0"
           placeholder="Maks"
           :value="modelValue.maxChapters || ''"
-          class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
           @input="update({ maxChapters: parseInt(($event.target as HTMLInputElement).value) || 0 })"
         />
       </div>
@@ -184,13 +194,13 @@ const sortOptions = [
         <input
           type="date"
           :value="modelValue.updatedAfter"
-          class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
           @input="update({ updatedAfter: ($event.target as HTMLInputElement).value })"
         />
         <input
           type="date"
           :value="modelValue.updatedBefore"
-          class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
           @input="update({ updatedBefore: ($event.target as HTMLInputElement).value })"
         />
       </div>

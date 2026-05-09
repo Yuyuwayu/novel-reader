@@ -7,6 +7,7 @@ import { RouterView } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
 import AppNavbar from '@/components/AppNavbar.vue'
 import MobileBottomNav from '@/components/MobileBottomNav.vue'
+import PWAInstallPrompt from '@/components/PWAInstallPrompt.vue'
 
 const themeStore = useThemeStore()
 
@@ -26,6 +27,9 @@ onBeforeMount(() => {
     :class="themeStore.isDark ? 'bg-[#050506]' : 'bg-[#F8F8FC]'"
   >
     <AppNavbar />
+
+    <!-- PWA Install Prompt -->
+    <PWAInstallPrompt />
 
     <!-- Page content — pb-16 accounts for mobile bottom nav height -->
     <div class="pb-16 md:pb-0">

@@ -8,7 +8,6 @@ import type {
   NovelDetail,
   CatalogResponse,
   NovelBookmark,
-  RatingInfo,
   Comment,
   ReadingHistory,
   Genre,

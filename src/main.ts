@@ -23,6 +23,27 @@ async function bootstrap(): Promise<void> {
   _setAuthStoreGetter(() => useAuthStore())
 
   app.mount('#app')
+
+  // Register Service Worker in production only
+  if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+    const { registerSW } = await import('virtual:pwa-register')
+    registerSW({
+      immediate: true,
+      onNeedRefresh() {
+        // Show update notification
+        console.log('New version available. Please reload.')
+      },
+      onOfflineReady() {
+        console.log('App ready to work offline')
+      },
+      onRegistered(registration: ServiceWorkerRegistration | undefined) {
+        console.log('Service Worker registered:', registration)
+      },
+      onRegisterError(error: Error) {
+        console.error('Service Worker registration failed:', error)
+      }
+    })
+  }
 }
 
 bootstrap()

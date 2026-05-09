@@ -17,11 +17,14 @@ import { useBookmarksStore } from '@/stores/bookmarks'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
+import { calculateReadingTime } from '@/utils/readingTime'
+import { trackOfflineRead, trackOnlineRead } from '@/utils/offlineAnalytics'
 import ChapterNavigation from '@/components/ChapterNavigation.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
 import CommentSection from '@/components/CommentSection.vue'
 import ReadingProgressBar from '@/components/ReadingProgressBar.vue'
+import AutoScrollWidget from '@/components/AutoScrollWidget.vue'
 
 // ── Route & stores ────────────────────────────────────────────────────────────
 
@@ -91,13 +94,16 @@ const fontFamily = computed(() => preferencesStore.preferences.fontFamily)
 const lineSpacing = computed(() => preferencesStore.preferences.lineSpacing)
 const contentWidth = computed(() => preferencesStore.preferences.contentWidth)
 
-// ── Read time estimate (Req 25.6) ─────────────────────────────────────────────
+// ── Read time estimate (Req 25.6, 5.9) ───────────────────────────────────────
 
-const readTimeMinutes = computed(() => {
-  if (!chapter.value) return 0
-  const wordCount = chapter.value.content.split(/\s+/).filter(Boolean).length
-  return Math.ceil(wordCount / 200)
+const readingTime = computed(() => {
+  if (!chapter.value) return null
+  return calculateReadingTime(chapter.value.content)
 })
+
+// ── Offline state (Req 7.6, 11.2) ────────────────────────────────────────────
+
+const isOffline = ref(!navigator.onLine)
 
 // ── Bookmark state ────────────────────────────────────────────────────────────
 
@@ -158,13 +164,6 @@ const activeHighlight = ref<Highlight | null>(null)
 const notePanelVisible = ref(false)
 const noteEditText = ref('')
 
-const HIGHLIGHT_COLORS: Array<{ value: Highlight['color']; label: string; bg: string }> = [
-  { value: 'yellow', label: 'Kuning', bg: 'bg-yellow-300' },
-  { value: 'green', label: 'Hijau', bg: 'bg-green-300' },
-  { value: 'blue', label: 'Biru', bg: 'bg-blue-300' },
-  { value: 'pink', label: 'Merah Muda', bg: 'bg-pink-300' },
-]
-
 /** Map color value to Tailwind background class for mark elements */
 const COLOR_BG_MAP: Record<Highlight['color'], string> = {
   yellow: 'bg-yellow-200',
@@ -172,6 +171,14 @@ const COLOR_BG_MAP: Record<Highlight['color'], string> = {
   blue: 'bg-blue-200',
   pink: 'bg-pink-200',
 }
+
+/** Color options for the highlight picker */
+const HIGHLIGHT_COLORS = [
+  { value: 'yellow' as const, label: 'Kuning', bg: 'bg-yellow-200' },
+  { value: 'green' as const, label: 'Hijau', bg: 'bg-green-200' },
+  { value: 'blue' as const, label: 'Biru', bg: 'bg-blue-200' },
+  { value: 'pink' as const, label: 'Pink', bg: 'bg-pink-200' },
+]
 
 async function loadHighlights(): Promise<void> {
   try {
@@ -506,6 +513,13 @@ async function loadChapter(): Promise<void> {
     if (authStore.isAuthenticated) {
       loadHighlights()
     }
+
+    // Track offline/online analytics (Req 11.1, 11.2, 11.3)
+    if (navigator.onLine) {
+      trackOnlineRead()
+    } else {
+      trackOfflineRead(novelId.value)
+    }
   } catch (err) {
     if (err instanceof ApiError) {
       errorMessage.value = err.message
@@ -524,12 +538,18 @@ onMounted(() => {
   window.addEventListener('scroll', handleScroll, { passive: true })
   window.addEventListener('keydown', handleKeydown)
   document.addEventListener('mousedown', onDocumentMouseDown)
+  
+  // Listen to online/offline events (Req 7.6, 11.2)
+  window.addEventListener('online', () => { isOffline.value = false })
+  window.addEventListener('offline', () => { isOffline.value = true })
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('keydown', handleKeydown)
   document.removeEventListener('mousedown', onDocumentMouseDown)
+  window.removeEventListener('online', () => { isOffline.value = false })
+  window.removeEventListener('offline', () => { isOffline.value = true })
 })
 
 function onDocumentMouseDown(event: MouseEvent): void {
@@ -681,13 +701,42 @@ watch(
           Chapter {{ chapter.chapterNumber }}: {{ chapter.title }}
         </h2>
 
-        <!-- Read time estimate (Req 25.6) -->
-        <p
-          class="mb-6 text-sm"
-          :class="theme === 'dark' ? 'text-gray-400' : 'text-gray-500'"
-        >
-          Estimasi waktu baca: {{ readTimeMinutes }} menit
-        </p>
+        <!-- Read time estimate (Req 25.6, 5.9) and offline badge (Req 7.6, 11.2) -->
+        <div class="mb-6 flex items-center gap-3">
+          <p
+            v-if="readingTime"
+            class="text-sm"
+            :class="theme === 'dark' ? 'text-gray-400' : 'text-gray-500'"
+          >
+            Estimasi waktu baca: {{ readingTime.wordCount > 0 && (readingTime.wordCount / (readingTime.language === 'en' ? 250 : 200)) < 1 ? '< 1 menit' : `${readingTime.minutes} menit` }}
+          </p>
+          
+          <!-- Offline badge (Req 7.6) -->
+          <span
+            v-if="isOffline"
+            class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium"
+            :class="theme === 'dark'
+              ? 'border-amber-400/40 bg-amber-400/10 text-amber-400'
+              : 'border-amber-500/40 bg-amber-50 text-amber-700'"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"
+              />
+            </svg>
+            Dibaca Offline
+          </span>
+        </div>
 
         <!-- Chapter body — font family and line spacing applied here (Req 25.1, 25.2) -->
         <!-- mouseup handler detects text selections for highlight creation (Req 26.1) -->
@@ -760,37 +809,6 @@ watch(
         />
       </template>
     </main>
-
-    <!-- Scroll-to-top button (Req 25.7) — appears after scrolling 300px -->
-    <Transition
-      enter-active-class="transition-opacity duration-200"
-      enter-from-class="opacity-0"
-      leave-active-class="transition-opacity duration-200"
-      leave-to-class="opacity-0"
-    >
-      <button
-        v-if="showScrollTop"
-        type="button"
-        aria-label="Kembali ke atas"
-        class="fixed bottom-20 right-4 z-40 flex h-10 w-10 items-center justify-center rounded-full border shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/50 focus:ring-offset-2 md:bottom-6 md:right-6"
-        :class="themeStore.isDark
-          ? 'border-[rgba(255,255,255,0.08)] bg-white/[0.06] text-[#8A8F98] hover:bg-white/[0.10] hover:text-[#EDEDEF] focus:ring-offset-[#050506]'
-          : 'border-[rgba(0,0,0,0.08)] bg-white text-[#6B7080] hover:bg-black/[0.04] hover:text-[#111118] focus:ring-offset-[#F8F8FC]'"
-        @click="scrollToTop"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-5 w-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          stroke-width="2"
-          aria-hidden="true"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-        </svg>
-      </button>
-    </Transition>
 
     <!-- Report Chapter modal (Req 29.1, 29.2, 29.3) -->
     <Teleport to="body">
@@ -975,8 +993,6 @@ watch(
         </div>
       </Transition>
     </Teleport>
-  </div>
-</template>
 
     <!-- Floating highlight color picker (Req 26.1) -->
     <!-- Appears above the text selection when user selects text while authenticated -->
@@ -1149,5 +1165,8 @@ watch(
         </svg>
       </button>
     </Transition>
+
+    <!-- Auto-scroll control widget -->
+    <AutoScrollWidget v-if="chapter" />
   </div>
 </template>

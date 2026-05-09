@@ -13,16 +13,17 @@
 
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { fetchHomeData, fetchRandomPick, fetchHistory, fetchNewAdditions } from '@/api'
+import { fetchHomeData, fetchRandomPick, fetchNewAdditions } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
-import type { HomeData, NovelSummary, LeaderboardEntry, ReadingHistory } from '@/types'
+import type { HomeData, NovelSummary, LeaderboardEntry } from '@/types'
 import NovelCarousel from '@/components/NovelCarousel.vue'
 import NovelCard from '@/components/NovelCard.vue'
 import LatestUpdateItem from '@/components/LatestUpdateItem.vue'
 import LeaderboardItem from '@/components/LeaderboardItem.vue'
 import SkeletonLoader from '@/components/SkeletonLoader.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
+import ContinueReadingWidget from '@/components/ContinueReadingWidget.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -33,12 +34,6 @@ const themeStore = useThemeStore()
 const homeData = ref<HomeData | null>(null)
 const homeLoading = ref(true)
 const homeError = ref<string | null>(null)
-
-// ── "Lanjutkan Membaca" section (auth only) ────────────────────────────────────
-
-const continueReading = ref<ReadingHistory[]>([])
-const continueLoading = ref(false)
-const continueError = ref<string | null>(null)
 
 // ── Random Pick section ────────────────────────────────────────────────────────
 
@@ -123,20 +118,6 @@ async function loadHomeData(): Promise<void> {
   }
 }
 
-async function loadContinueReading(): Promise<void> {
-  if (!authStore.isAuthenticated) return
-  continueLoading.value = true
-  continueError.value = null
-  try {
-    const history = await fetchHistory()
-    continueReading.value = history.slice(0, 6)
-  } catch (err) {
-    continueError.value = err instanceof Error ? err.message : 'Gagal memuat riwayat baca.'
-  } finally {
-    continueLoading.value = false
-  }
-}
-
 async function refreshRandomPick(): Promise<void> {
   randomLoading.value = true
   randomError.value = null
@@ -164,11 +145,8 @@ async function loadNewAdditions(): Promise<void> {
 // ── Lifecycle ──────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
-  // Load home data and continue reading in parallel (Req 20.3)
+  // Load home data and new additions in parallel (Req 20.3)
   const tasks: Promise<void>[] = [loadHomeData(), loadNewAdditions()]
-  if (authStore.isAuthenticated) {
-    tasks.push(loadContinueReading())
-  }
   await Promise.allSettled(tasks)
 })
 
@@ -185,19 +163,6 @@ function goToLatestUpdates(): void {
 function goToLeaderboard(): void {
   router.push('/leaderboard')
 }
-
-// ── Convert ReadingHistory to NovelSummary for carousel ───────────────────────
-
-const continueReadingNovels = computed<NovelSummary[]>(() =>
-  continueReading.value.map((h) => ({
-    id: h.novelId,
-    title: h.novelTitle,
-    author: '',
-    genre: [],
-    thumbnailUrl: h.thumbnailUrl,
-    status: 'ongoing' as const,
-  }))
-)
 </script>
 
 <template>
@@ -284,42 +249,7 @@ const continueReadingNovels = computed<NovelSummary[]>(() =>
       </section>
 
       <!-- ── 2. Lanjutkan Membaca (auth only) ────────────────────────────── -->
-      <section
-        v-if="authStore.isAuthenticated"
-        class="mb-14"
-        aria-label="Lanjutkan Membaca"
-      >
-        <div class="mb-5 flex items-center gap-3">
-          <span
-            class="inline-block rounded-full border px-3 py-0.5 font-mono text-xs tracking-widest uppercase"
-            :class="themeStore.isDark
-              ? 'border-[rgba(94,106,210,0.30)] text-[#5E6AD2]'
-              : 'border-[rgba(94,106,210,0.25)] text-[#5E6AD2]'"
-          >Riwayat</span>
-          <h2
-            class="text-xl font-semibold tracking-tight"
-            :class="themeStore.isDark ? 'text-[#EDEDEF]' : 'text-[#1A1A2E]'"
-          >Lanjutkan Membaca</h2>
-        </div>
-
-        <div v-if="continueLoading" class="overflow-hidden rounded-2xl">
-          <SkeletonLoader :count="4" />
-        </div>
-        <ErrorMessage
-          v-else-if="continueError"
-          :message="continueError"
-          :retryable="true"
-          @retry="loadContinueReading"
-        />
-        <p
-          v-else-if="continueReadingNovels.length === 0"
-          class="text-sm"
-          :class="themeStore.isDark ? 'text-[#8A8F98]' : 'text-[#6B7280]'"
-        >
-          Belum ada riwayat baca. Mulai baca novel sekarang!
-        </p>
-        <NovelCarousel v-else :novels="continueReadingNovels" :loading="false" />
-      </section>
+      <ContinueReadingWidget v-if="authStore.isAuthenticated" class="mb-14" />
 
       <!-- ── 3. Trending ─────────────────────────────────────────────────── -->
       <section class="mb-14" aria-label="Novel Trending">

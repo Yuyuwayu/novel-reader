@@ -31,6 +31,38 @@ export function isStorageAvailable(): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Generic localStorage helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Generic helper to get an item from localStorage.
+ * Returns null if the key doesn't exist or localStorage is unavailable.
+ */
+export function getItem(key: string): string | null {
+  if (!isStorageAvailable()) return null
+  
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Generic helper to set an item in localStorage.
+ * Does nothing if localStorage is unavailable.
+ */
+export function setItem(key: string, value: string): void {
+  if (!isStorageAvailable()) return
+  
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // Storage quota exceeded or other write error — fail silently
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Reading Progress
 // ---------------------------------------------------------------------------
 

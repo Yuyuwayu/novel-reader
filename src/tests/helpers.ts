@@ -42,6 +42,9 @@ export const bookmarkArb: fc.Arbitrary<Bookmark> = fc.record({
 export const readingPreferencesArb: fc.Arbitrary<ReadingPreferences> = fc.record({
   theme: themeArb,
   fontSizePx: fc.integer({ min: 12, max: 24 }),
+  fontFamily: fc.constantFrom('font-sans', 'font-serif', 'font-mono'),
+  lineSpacing: fc.constantFrom('leading-snug', 'leading-relaxed', 'leading-loose'),
+  contentWidth: fc.integer({ min: 600, max: 900 }),
 })
 
 /** Arbitrary for NovelSummary */
