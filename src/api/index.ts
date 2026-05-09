@@ -850,3 +850,26 @@ export async function adminUpdateReportStatus(
     auth: true,
   })
 }
+
+// ── Translator & Glossary ─────────────────────────────────────────────────────
+
+/**
+ * Fetches the definition/lore explanation for a specific term.
+ */
+export async function fetchDefinition(term: string): Promise<{ term: string; definition: string }> {
+  const params = new URLSearchParams({ term })
+  return apiFetch<{ term: string; definition: string }>(`${BASE_URL}/dictionary?${params.toString()}`)
+}
+
+/**
+ * Requests an auto-translated version of a chapter.
+ */
+export async function translateChapter(novelId: string, chapterNumber: number): Promise<ChapterContent> {
+  return apiFetch<ChapterContent>(
+    `${BASE_URL}/translate/chapter`,
+    {
+      method: 'POST',
+      body: { novelId, chapterNumber },
+    }
+  )
+}

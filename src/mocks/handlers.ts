@@ -1435,4 +1435,64 @@ export const handlers = [
 
     return HttpResponse.json(reportsStore[idx])
   }),
+
+  // ── Dictionary & Translation (Chinese Web Novel Features) ─────────────────
+
+  // GET /api/dictionary
+  http.get('/api/dictionary', async ({ request }) => {
+    await delay(SIMULATED_DELAY_MS)
+    const url = new URL(request.url)
+    const term = url.searchParams.get('term') || ''
+    const key = term.toLowerCase().trim()
+    
+    const DICTIONARY: Record<string, string> = {
+      'qi': 'Energi spiritual dasar di alam semesta yang dihisap oleh kultivator untuk memperkuat tubuh dan jiwa.',
+      'kultivasi': 'Proses menyerap energi alam semesta (Qi) untuk memperpanjang umur, memperkuat diri, dan mencapai keabadian (Immortality).',
+      'sekte': 'Organisasi atau perguruan tempat para kultivator berkumpul untuk mempelajari seni bela diri dan teknik kultivasi tertentu. Biasanya memiliki hierarki murid luar, murid dalam, dan tetua.',
+      'formasi': 'Susunan magis menggunakan batu spiritual atau artefak untuk menciptakan efek tertentu seperti pelindung (barrier), ilusi, serangan mematikan, atau pengumpulan Qi.',
+      'dao': 'Jalan kosmik atau kebenaran sejati alam semesta. Pemahaman mendalam tentang Dao adalah tujuan akhir dari setiap kultivator tingkat tinggi untuk menerobos batas fana.',
+      'dantian': 'Pusat energi di dalam tubuh seorang kultivator tempat Qi disimpan dan dikumpulkan. Biasanya terletak di area perut bagian bawah.',
+      'meridian': 'Jaringan tak kasat mata di dalam tubuh yang berfungsi sebagai saluran mengalirnya Qi.',
+      'jiwa': 'Esensi spiritual seseorang. Semakin kuat jiwanya, semakin tajam persepsinya terhadap bahaya dan semakin kuat ketahanannya terhadap serangan mental.',
+      'artefak': 'Senjata atau alat magis yang telah ditempa dan dimasukkan energi spiritual. Memiliki tingkatan kekuatan (seperti fana, bumi, langit, suci).'
+    }
+
+    // Simulate a dictionary lookup
+    const definition = DICTIONARY[key] || `Istilah "${term}" belum tercatat secara resmi dalam glosarium kuno kami. Namun di dunia Xianxia, ini kemungkinan merujuk pada artefak langka, teknik terlarang, atau nama monster mistis.`
+
+    return HttpResponse.json({ term, definition })
+  }),
+
+  // POST /api/translate/chapter
+  http.post('/api/translate/chapter', async ({ request }) => {
+    await delay(SIMULATED_DELAY_MS * 3) // simulate longer delay for whole chapter processing
+    
+    const body = (await request.json()) as { novelId: string, chapterNumber: number }
+    const { novelId, chapterNumber } = body
+    
+    const novel = NOVELS.find((n) => n.id === novelId)
+    if (!novel) {
+      return HttpResponse.json({ message: 'Novel not found' }, { status: 404 })
+    }
+    
+    const totalChapters = NOVEL_CHAPTER_COUNTS[novelId] ?? 10
+    const originalContent = generateChapterContent(novelId, chapterNumber)
+    
+    // Create a "translated" version by prefixing paragraphs
+    const translatedParagraphs = originalContent.paragraphs.map(p => 
+      `*(Terjemahan Otomatis)* ${p}`
+    )
+    
+    const translatedContent: import('@/types').ChapterContent = {
+      novelId,
+      chapterNumber,
+      title: `[Terjemahan] ${getChapterTitle(novelId, chapterNumber)}`,
+      content: {
+        paragraphs: translatedParagraphs
+      },
+      totalChapters
+    }
+    
+    return HttpResponse.json(translatedContent)
+  }),
 ]

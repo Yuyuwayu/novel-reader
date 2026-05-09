@@ -9,7 +9,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useSeoMeta } from '@/composables/useSeoMeta'
-import { fetchChapter, recordHistory, fetchHighlights, createHighlight, deleteHighlight, submitReport } from '@/api'
+import { fetchChapter, recordHistory, fetchHighlights, createHighlight, deleteHighlight, submitReport, fetchDefinition, translateChapter } from '@/api'
 import { ApiError } from '@/api'
 import type { ChapterContent, Highlight, Report } from '@/types'
 import { useProgressStore } from '@/stores/progress'
@@ -46,6 +46,28 @@ const chapterNumber = computed(() => Number(route.params.chapterNumber))
 const chapter = ref<ChapterContent | null>(null)
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
+
+// ── Chapter Translation (Req: Auto Translate) ─────────────────────────────────
+
+const isTranslating = ref(false)
+const translationError = ref<string | null>(null)
+
+async function handleTranslateChapter(): Promise<void> {
+  if (isTranslating.value || !chapter.value) return
+  
+  isTranslating.value = true
+  translationError.value = null
+  
+  try {
+    const translatedChapter = await translateChapter(novelId.value, chapterNumber.value)
+    // Replace the current chapter content with the translated one
+    chapter.value = translatedChapter
+  } catch (err) {
+    translationError.value = err instanceof Error ? err.message : 'Terjadi kesalahan saat menerjemahkan.'
+  } finally {
+    isTranslating.value = false
+  }
+}
 
 // ── Reading progress bar (Req 25.5) ──────────────────────────────────────────
 
@@ -163,6 +185,41 @@ let pendingRange: Range | null = null
 const activeHighlight = ref<Highlight | null>(null)
 const notePanelVisible = ref(false)
 const noteEditText = ref('')
+
+// ── Glossary / Dictionary (Tap-to-Define) ─────────────────────────────────────
+
+const activeDefinition = ref<{ term: string; definition: string } | null>(null)
+const definitionPanelVisible = ref(false)
+const isDefining = ref(false)
+
+async function lookupDefinition(): Promise<void> {
+  if (!pendingRange) return
+
+  const text = pendingRange.toString().trim()
+  if (!text) return
+
+  // Close color picker
+  hideColorPicker()
+  window.getSelection()?.removeAllRanges()
+
+  isDefining.value = true
+  definitionPanelVisible.value = true
+  activeDefinition.value = null
+
+  try {
+    const result = await fetchDefinition(text)
+    activeDefinition.value = result
+  } catch (error) {
+    activeDefinition.value = { term: text, definition: 'Gagal memuat definisi dari server.' }
+  } finally {
+    isDefining.value = false
+  }
+}
+
+function closeDefinitionPanel(): void {
+  definitionPanelVisible.value = false
+  activeDefinition.value = null
+}
 
 /** Map color value to Tailwind background class for mark elements */
 const COLOR_BG_MAP: Record<Highlight['color'], string> = {
@@ -655,6 +712,42 @@ watch(
               </svg>
             </button>
 
+            <!-- Translate Chapter button -->
+            <button
+              v-if="chapter && !isLoading"
+              type="button"
+              :disabled="isTranslating"
+              aria-label="Terjemahkan bab ini"
+              class="rounded-lg border p-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/50 focus:ring-offset-2"
+              :class="themeStore.isDark
+                ? 'border-[rgba(255,255,255,0.08)] bg-white/[0.04] text-[#8A8F98] hover:bg-white/[0.08] hover:text-[#EDEDEF] focus:ring-offset-[#050506]'
+                : 'border-[rgba(0,0,0,0.08)] bg-black/[0.03] text-[#6B7080] hover:bg-black/[0.06] hover:text-[#111118] focus:ring-offset-[#F8F8FC]'
+              "
+              @click="handleTranslateChapter"
+            >
+              <svg 
+                v-if="!isTranslating"
+                xmlns="http://www.w3.org/2000/svg" 
+                class="h-5 w-5" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor" 
+                stroke-width="2"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+              </svg>
+              <svg
+                v-else
+                class="h-5 w-5 animate-spin text-[#5E6AD2]"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </button>
+
             <!-- Settings panel -->
             <SettingsPanel />
           </div>
@@ -807,7 +900,69 @@ watch(
           :novel-id="novelId"
           :chapter-number="chapter.chapterNumber"
         />
-      </template>
+        <!-- Definition Panel (Tap-to-Define) -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition-transform duration-200"
+        enter-from-class="translate-x-full"
+        leave-active-class="transition-transform duration-200"
+        leave-to-class="translate-x-full"
+      >
+        <div
+          v-if="definitionPanelVisible"
+          class="fixed right-0 top-14 z-50 flex h-[calc(100vh-3.5rem)] w-80 flex-col border-l shadow-xl"
+          :class="theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'"
+          role="dialog"
+          aria-label="Glosarium Novel"
+        >
+          <!-- Panel header -->
+          <div
+            class="flex items-center justify-between border-b px-4 py-3"
+            :class="theme === 'dark' ? 'border-gray-700' : 'border-gray-200'"
+          >
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#5E6AD2]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <h2
+                class="text-sm font-semibold"
+                :class="theme === 'dark' ? 'text-gray-100' : 'text-gray-900'"
+              >
+                Glosarium & Penjelasan
+              </h2>
+            </div>
+            <button
+              type="button"
+              aria-label="Tutup glosarium"
+              class="rounded p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/50"
+              :class="theme === 'dark' ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-100' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'"
+              @click="closeDefinitionPanel"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Panel content -->
+          <div class="flex-1 overflow-y-auto p-4">
+            <div v-if="isDefining" class="flex items-center justify-center py-10">
+              <svg class="h-8 w-8 animate-spin text-[#5E6AD2]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+            <div v-else-if="activeDefinition">
+              <h3 class="mb-3 text-lg font-bold text-[#5E6AD2]">{{ activeDefinition.term }}</h3>
+              <p class="leading-relaxed" :class="theme === 'dark' ? 'text-gray-300' : 'text-gray-700'">
+                {{ activeDefinition.definition }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+  </template>
     </main>
 
     <!-- Report Chapter modal (Req 29.1, 29.2, 29.3) -->
@@ -1027,6 +1182,20 @@ watch(
             :class="[colorOption.bg, `focus:ring-${colorOption.value}-400`]"
             @click="pickColor(colorOption.value)"
           />
+          <div class="mx-1 h-4 w-px bg-gray-300 dark:bg-gray-600"></div>
+          <!-- Glossary / Dictionary lookup button -->
+          <button
+            type="button"
+            aria-label="Cari arti glosarium"
+            class="flex h-7 items-center gap-1 rounded px-2 text-xs font-medium transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/50 dark:hover:bg-gray-700"
+            :class="theme === 'dark' ? 'text-gray-300' : 'text-gray-600'"
+            @click="lookupDefinition"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <span>Arti</span>
+          </button>
         </div>
       </Transition>
     </Teleport>
