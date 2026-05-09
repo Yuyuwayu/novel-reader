@@ -70,6 +70,31 @@ describe('Property 3: ReadingPreferences round-trip serialization', () => {
   })
 })
 
+// Property 3.1: autoScrollSpeed valid range validation
+import { setActivePinia, createPinia } from 'pinia'
+import { usePreferencesStore } from '@/stores/preferences'
+
+describe('Property 3.1: autoScrollSpeed valid range', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('should always clamp autoScrollSpeed between 1 and 10', () => {
+    fc.assert(
+      fc.property(
+        fc.integer(),
+        (speed: number) => {
+          const prefsStore = usePreferencesStore()
+          prefsStore.setAutoScrollSpeed(speed)
+          const storedSpeed = prefsStore.preferences.autoScrollSpeed
+          return storedSpeed >= 1 && storedSpeed <= 10
+        },
+      ),
+      { numRuns: 100 },
+    )
+  })
+})
+
 // Property 4: Font size valid range validation
 // Validates: Requirements 6.4
 describe('Property 4: Font size valid range', () => {
