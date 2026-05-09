@@ -292,7 +292,7 @@ export const NOVEL_EXTENDED: Record<string, {
 
 // ── Chapter content generator ─────────────────────────────────────────────────
 
-const CHAPTER_PARAGRAPHS = [
+const CHAPTER_PARAGRAPHS_ID = [
   'Langit di atas kota itu berwarna abu-abu, seperti selalu. Awan tebal menggantung rendah, mengancam hujan yang tak kunjung turun. Di bawahnya, jalanan ramai dengan orang-orang yang bergegas menuju tujuan masing-masing, tak ada yang memperhatikan satu sama lain.',
   'Ia berdiri di sudut jalan, mengamati keramaian dengan mata yang sudah lama kehilangan rasa ingin tahu. Sudah terlalu lama ia hidup di kota ini. Sudah terlalu banyak yang ia lihat, yang ia alami, yang ia lupakan.',
   '"Kamu yakin ini ide yang bagus?" suara dari belakangnya membuat ia berbalik. Seorang perempuan dengan rambut pendek berdiri beberapa langkah darinya, tangan terlipat di dada.',
@@ -313,13 +313,35 @@ const CHAPTER_PARAGRAPHS = [
   '"Baiklah," katanya akhirnya, menarik kursi dan duduk. "Mari kita mulai."',
 ]
 
-export function generateChapterContent(novelId: string, chapterNumber: number): string {
+const CHAPTER_PARAGRAPHS_EN = [
+  'The sky above the city was gray, as always. Thick clouds hung low, threatening rain that never came. Below, the streets bustled with people rushing to their destinations, no one paying attention to each other.',
+  'He stood at the street corner, observing the crowd with eyes that had long lost their curiosity. He had lived in this city for far too long. He had seen too much, experienced too much, forgotten too much.',
+  '"Are you sure this is a good idea?" a voice from behind made him turn. A woman with short hair stood a few steps away, arms crossed.',
+  '"No," he answered honestly. "But I have no other choice."',
+  'The woman sighed deeply. "It\'s always like this with you. Never a backup plan."',
+  '"Backup plans are for people who are afraid to fail." He smiled faintly. "I\'m already used to failing."',
+  'They walked in silence after that, navigating narrow alleys known only to those who had lived here a long time. The smell of food from small stalls mixed with the scent of damp earth coming from nowhere.',
+  'At the end of the alley, a rusted iron door awaited. No sign, no number. Just a door, and behind it, something he had avoided for a long time.',
+  'He reached out, his fingers touching the cold metal surface. For a moment he hesitated. Just a moment.',
+  'Then he pushed the door open.',
+  'The room behind it was larger than it looked from the outside. Small lights hung from the ceiling, casting a warm but somehow eerie yellowish glow. In the center of the room, a long table with worn-out chairs.',
+  'And at the end of the table, someone he hadn\'t seen in a long time.',
+  '"Long time no see," the person said without turning. "I\'ve been waiting for you."',
+  '"For how long?" he asked, stepping inside.',
+  '"Long enough to know you would come." The person finally turned, and the face he saw made his chest tighten. "Long enough to prepare everything."',
+  'He didn\'t answer. There was nothing to answer. They both knew why he was here, and they both knew there was no turning back after this.',
+  'The woman behind him closed the door softly. The click of the lock sounded like a sentence.',
+  '"Alright," he finally said, pulling a chair and sitting down. "Let\'s begin."',
+]
+
+export function generateChapterContent(novelId: string, chapterNumber: number, lang: 'en' | 'id' = 'en'): string {
   // Deterministically pick paragraphs based on novelId + chapterNumber
   const seed = novelId.length + chapterNumber
   const count = 8 + (seed % 5) // 8–12 paragraphs
   const paragraphs: string[] = []
+  const source = lang === 'en' ? CHAPTER_PARAGRAPHS_EN : CHAPTER_PARAGRAPHS_ID
   for (let i = 0; i < count; i++) {
-    paragraphs.push(CHAPTER_PARAGRAPHS[(seed + i) % CHAPTER_PARAGRAPHS.length])
+    paragraphs.push(source[(seed + i) % source.length])
   }
   return paragraphs.join('\n\n')
 }

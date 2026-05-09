@@ -1476,20 +1476,20 @@ export const handlers = [
     }
     
     const totalChapters = NOVEL_CHAPTER_COUNTS[novelId] ?? 10
-    const originalContent = generateChapterContent(novelId, chapterNumber)
     
-    // Create a "translated" version by prefixing paragraphs
-    const translatedParagraphs = originalContent.paragraphs.map(p => 
-      `*(Terjemahan Otomatis)* ${p}`
+    // Get the Indonesian version of the chapter content
+    const translatedContentText = generateChapterContent(novelId, chapterNumber, 'id')
+    
+    // Add a visual indicator for demo purposes
+    const translatedParagraphs = translatedContentText.split('\n\n').map(p => 
+      `*(Terjemahan)* ${p}`
     )
     
     const translatedContent: import('@/types').ChapterContent = {
       novelId,
       chapterNumber,
-      title: `[Terjemahan] ${getChapterTitle(novelId, chapterNumber)}`,
-      content: {
-        paragraphs: translatedParagraphs
-      },
+      title: `[ID] ${getChapterTitle(novelId, chapterNumber)}`,
+      content: translatedParagraphs.join('\n\n'),
       totalChapters
     }
     

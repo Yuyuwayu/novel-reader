@@ -161,7 +161,7 @@ describe('API Client', () => {
 
   describe('translateChapter', () => {
     it('returns successful JSON response for translation', async () => {
-      const mockResult = { novelId: '1', chapterNumber: 1, title: 'Bab 1', content: { paragraphs: ['Test'] }, totalChapters: 10 }
+      const mockResult = { novelId: '1', chapterNumber: 1, title: 'Bab 1', content: 'Test paragraph', totalChapters: 10 }
       vi.mocked(fetch).mockResolvedValue(
         new Response(JSON.stringify(mockResult), { status: 200 }),
       )
