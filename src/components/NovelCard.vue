@@ -88,34 +88,36 @@ const statusColor: Record<string, { dark: string; light: string }> = {
       </span>
     </div>
 
-    <!-- Metadata — fixed height agar semua card seragam -->
-    <div class="relative h-[88px] flex-shrink-0 overflow-hidden p-3">
-      <!-- Title: max 2 baris -->
-      <h3
-        class="line-clamp-2 text-sm font-semibold leading-snug tracking-tight transition-colors duration-200"
-        :class="themeStore.isDark
-          ? 'text-[#EDEDEF] group-hover:text-white'
-          : 'text-[#111118] group-hover:text-[#5E6AD2]'"
-      >
-        {{ novel.title }}
-      </h3>
-      <!-- Author: 1 baris -->
-      <p
-        class="mt-0.5 truncate text-xs"
-        :class="themeStore.isDark ? 'text-[#8A8F98]' : 'text-[#6B7080]'"
-      >
-        {{ novel.author }}
-      </p>
+    <!-- Metadata — flex layout agar tinggi menyesuaikan atau di-handle overflow -->
+    <div class="flex h-[104px] flex-shrink-0 flex-col overflow-hidden p-3">
+      <div class="min-h-0 flex-1">
+        <!-- Title: max 2 baris -->
+        <h3
+          class="line-clamp-2 text-sm font-semibold leading-snug tracking-tight transition-colors duration-200"
+          :class="themeStore.isDark
+            ? 'text-[#EDEDEF] group-hover:text-white'
+            : 'text-[#111118] group-hover:text-[#5E6AD2]'"
+        >
+          {{ novel.title }}
+        </h3>
+        <!-- Author: 1 baris -->
+        <p
+          class="mt-0.5 truncate text-xs"
+          :class="themeStore.isDark ? 'text-[#8A8F98]' : 'text-[#6B7080]'"
+        >
+          {{ novel.author }}
+        </p>
+      </div>
 
-      <!-- Genre chips — absolute di bawah agar tidak menggeser judul -->
+      <!-- Genre chips -->
       <div
         v-if="novel.genre.length"
-        class="absolute bottom-2.5 left-3 right-3 flex flex-wrap gap-1"
+        class="mt-1.5 flex h-[22px] flex-wrap gap-1 overflow-hidden"
       >
         <span
           v-for="g in novel.genre.slice(0, 2)"
           :key="g"
-          class="rounded-full border px-2 py-0.5 text-[10px] font-medium"
+          class="whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium"
           :class="themeStore.isDark
             ? 'border-[rgba(255,255,255,0.06)] bg-white/[0.04] text-[#8A8F98]'
             : 'border-[rgba(0,0,0,0.07)] bg-black/[0.03] text-[#6B7080]'"
